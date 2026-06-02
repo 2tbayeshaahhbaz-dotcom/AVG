@@ -43,6 +43,9 @@ print("╚═══════════════════════�
 # Step 1: Clean previous failed attempts
 print("\n[1/7] 🧹 Cleaning old files...")
 os.system("rm -rf SadTalker outputs audio_temp results_* *.mp3 *.wav test.*")
+# Create output directory for final videos
+os.makedirs("/content/outputs", exist_ok=True)
+os.makedirs("/content/audio_temp", exist_ok=True)
 print("      ✅ Done")
 
 # Step 2: System packages (ffmpeg, OpenGL for face libs)
@@ -120,7 +123,7 @@ from pathlib import Path
 # CRITICAL: patch asyncio so edge-tts works inside Jupyter
 nest_asyncio.apply()
 
-# Create working directories
+# Create working directories (also created in Cell 1, but ensuring here)
 os.makedirs("/content/outputs", exist_ok=True)
 os.makedirs("/content/audio_temp", exist_ok=True)
 
@@ -137,6 +140,12 @@ try:
     print("🎙️  Qwen TTS: ✅ Available")
 except ImportError:
     print("🎙️  Qwen TTS: ℹ️  Not available (using Edge TTS)")
+
+# Print output directory info
+print(f"\n📁 Output Directory: /content/outputs/")
+print(f"📁 Audio Temp Directory: /content/audio_temp/")
+print(f"   → All generated videos will be saved in /content/outputs/")
+print(f"   → Audio files will be saved in /content/audio_temp/\n")
 
 # ─────────────────────────────────────────────────────────────────
 # 1. HINDI VOICE GENERATION  (Microsoft Edge-TTS or Qwen TTS)
@@ -385,6 +394,39 @@ def run_pipeline(avatar_path, speed,
         time.sleep(0.5)
 
     done = sum(1 for v in output_videos if v)
+    
+    # Copy all generated videos to a final outputs folder with timestamp
+    if done > 0:
+        import shutil
+        from datetime import datetime
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        final_output_dir = f"/content/final_outputs_{timestamp}"
+        os.makedirs(final_output_dir, exist_ok=True)
+        
+        print(f"\n📁 Copying {done} video(s) to final output folder...")
+        for i, video_path in enumerate(output_videos, start=1):
+            if video_path and os.path.exists(video_path):
+                dest_path = os.path.join(final_output_dir, f"video_line_{i}.mp4")
+                shutil.copy2(video_path, dest_path)
+                # Also copy to main outputs folder
+                main_output = f"/content/outputs/video_line_{i}.mp4"
+                if os.path.exists(video_path) and video_path != main_output:
+                    shutil.copy2(video_path, main_output)
+        
+        # Copy audio files too
+        audio_dest_dir = os.path.join(final_output_dir, "audio")
+        os.makedirs(audio_dest_dir, exist_ok=True)
+        for i in range(1, 6):
+            audio_src = f"/content/audio_temp/line_{i}.wav"
+            if os.path.exists(audio_src):
+                shutil.copy2(audio_src, audio_dest_dir)
+        
+        print(f"✅ All files saved to: {final_output_dir}/")
+        print(f"   → Videos: {final_output_dir}/video_line_*.mp4")
+        print(f"   → Audio:  {final_output_dir}/audio/line_*.wav")
+        print(f"\n💡 Tip: You can download the entire folder from Colab file browser")
+        print(f"   (Click folder icon on left → Navigate to /content/final_outputs_{timestamp})\n")
+    
     print(f"\n╔══════════════════════════════════════════════════╗")
     print(f"║  🌟 Done! {done}/5 videos generated               ║")
     if done < 5:
